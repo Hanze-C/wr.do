@@ -73,7 +73,7 @@ See step by step installation tutorial at [Quick Start for Developer](https://wr
 
 ### Deploy with Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/oiov/wr.do.git&project-name=wrdo&env=DATABASE_URL&env=AUTH_SECRET&env=RESEND_API_KEY&env=NEXT_PUBLIC_EMAIL_R2_DOMAIN&env=NEXT_PUBLIC_OPEN_SIGNUP&env=GITHUB_TOKEN)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/oiov/wr.do.git&project-name=wrdo&env=DATABASE_URL&env=AUTH_SECRET&env=RESEND_API_KEY&env=NEXT_PUBLIC_EMAIL_R2_DOMAIN&env=GITHUB_TOKEN)
 
 Remember to fill in the necessary environment variables.
 
@@ -119,6 +119,18 @@ pnpm db:push
 
 Follow https://localhost:3000/setup
 
+## Environment Variables
+
+Via [Installation For Developer](https://wr.do/docs/developer).
+
+## Technology Stack
+
+- Next.js + React + TypeScript
+- Tailwind CSS for styling and design
+- Prisma ORM as the database toolkit
+- Cloudflare as the primary cloud infrastructure
+- Vercel as the recommended deployment platform
+
 ## Community Group
 
 - Discord: https://discord.gg/AHPQYuZu3m
@@ -139,3 +151,5 @@ Follow https://localhost:3000/setup
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=oiov/wr.do&type=Date" />
  </picture>
 </a>
+
+[![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")

@@ -1,5 +1,5 @@
+import { env } from "@/env.mjs";
 import { siteConfig } from "@/config/site";
-import { TeamPlanQuota } from "@/config/team";
 import { createDNSRecord } from "@/lib/cloudflare";
 import {
   createUserRecord,
@@ -7,7 +7,10 @@ import {
   getUserRecordCount,
 } from "@/lib/dto/cloudflare-dns-record";
 import { getDomainsByFeature } from "@/lib/dto/domains";
-import { checkUserStatus } from "@/lib/dto/user";
+import { getPlanQuota } from "@/lib/dto/plan";
+import { getConfigValue } from "@/lib/dto/system-config";
+import { checkUserStatus, getFirstAdminUser } from "@/lib/dto/user";
+import { applyRecordEmailHtml, resend } from "@/lib/email";
 import { reservedDomains } from "@/lib/enums";
 import { getCurrentUser } from "@/lib/session";
 import { generateSecret } from "@/lib/utils";
@@ -25,8 +28,10 @@ export async function POST(req: Request) {
       });
     }
 
+    const plan = await getPlanQuota(user.team);
+
     const { total } = await getUserRecordCount(user.id);
-    if (total >= TeamPlanQuota[user.team].RC_NewRecords) {
+    if (total >= plan.rcNewRecords) {
       return Response.json("Your records have reached the free limit.", {
         status: 409,
       });
@@ -80,8 +85,12 @@ export async function POST(req: Request) {
       });
     }
 
+    const enableSubdomainApply = await getConfigValue<boolean>(
+      "enable_subdomain_apply",
+    );
+
     // apply subdomain
-    if (siteConfig.enableSubdomainApply) {
+    if (enableSubdomainApply) {
       const res = await createUserRecord(user.id, {
         record_id: generateSecret(16),
         zone_id: matchedZone.cf_zone_id,
@@ -104,7 +113,22 @@ export async function POST(req: Request) {
           status: 502,
         });
       }
-      // send email to admin
+      const admin_user = await getFirstAdminUser();
+      if (admin_user) {
+        await resend.emails.send({
+          from: env.RESEND_FROM_EMAIL,
+          to: admin_user.email || "",
+          subject: "New record pending approval",
+          html: applyRecordEmailHtml({
+            appUrl: siteConfig.url,
+            appName: siteConfig.name,
+            zone_name: record.zone_name,
+            type: record.type,
+            name: record.name,
+            content: record.content,
+          }),
+        });
+      }
       return Response.json(res.data?.id);
     }
 
