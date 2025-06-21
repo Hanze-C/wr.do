@@ -8,7 +8,7 @@ import ApiReference from "@/components/shared/api-reference";
 import { MarkdownScraping, TextScraping } from "../scrapes";
 
 export const metadata = constructMetadata({
-  title: "Url to Markdown API - WR.DO",
+  title: "Url to Markdown API",
   description:
     "Quickly extract website content and convert it to Markdown format",
 });
@@ -21,10 +21,10 @@ export default async function DashboardPage() {
   return (
     <>
       <DashboardHeader
-        heading="Url&nbsp;&nbsp;to&nbsp;&nbsp;Markdown"
-        text="Quickly extract website content and convert it to Markdown format."
+        heading="Url to Markdown"
+        text="Quickly extract website content and convert it to Markdown format"
         link="/docs/open-api/markdown"
-        linkText="Markdown API."
+        linkText="Markdown API"
       />
       <ApiReference
         badge="GET /api/v1/scraping/markdown"

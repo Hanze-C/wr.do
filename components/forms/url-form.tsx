@@ -1,9 +1,17 @@
 "use client";
 
-import { Dispatch, SetStateAction, useTransition } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { User } from "@prisma/client";
 import { Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -51,12 +59,14 @@ export function UrlForm({
 }: RecordFormProps) {
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
+  const [currentPrefix, setCurrentPrefix] = useState(initData?.prefix || "");
+  const [limitLen, setLimitLen] = useState(3);
+  const t = useTranslations("List");
 
   const {
     handleSubmit,
     register,
     formState: { errors },
-    getValues,
     setValue,
   } = useForm<FormData>({
     resolver: zodResolver(createUrlSchema),
@@ -65,21 +75,46 @@ export function UrlForm({
       target: initData?.target || "",
       url: initData?.url || "",
       active: initData?.active || 1,
-      prefix: initData?.prefix || "wr.do",
+      prefix: initData?.prefix || "",
       visible: initData?.visible || 0,
       expiration: initData?.expiration || "-1",
       password: initData?.password || "",
     },
   });
 
-  const { data: shortDomains, isLoading } = useSWR<{ domain_name: string }[]>(
-    "/api/domain?feature=short",
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      dedupingInterval: 10000,
-    },
-  );
+  const { data: shortDomains, isLoading } = useSWR<
+    { domain_name: string; min_url_length: number }[]
+  >("/api/domain?feature=short", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 10000,
+  });
+
+  const validDefaultDomain = useMemo(() => {
+    if (!shortDomains?.length) return undefined;
+
+    if (
+      initData?.prefix &&
+      shortDomains.some((d) => d.domain_name === initData.prefix)
+    ) {
+      return initData.prefix;
+    }
+
+    return shortDomains[0].domain_name;
+  }, [shortDomains, initData?.prefix]);
+
+  useEffect(() => {
+    if (validDefaultDomain) {
+      setValue("prefix", validDefaultDomain);
+      setCurrentPrefix(validDefaultDomain);
+    }
+  }, [validDefaultDomain]);
+
+  useEffect(() => {
+    setLimitLen(
+      shortDomains?.find((d) => d.domain_name === currentPrefix)
+        ?.min_url_length || 3,
+    );
+  }, [currentPrefix]);
 
   const onSubmit = handleSubmit((data) => {
     if (type === "add") {
@@ -166,14 +201,14 @@ export function UrlForm({
   return (
     <div>
       <div className="rounded-t-lg bg-muted px-4 py-2 text-lg font-semibold">
-        {type === "add" ? "Create" : "Edit"} short link
+        {type === "add" ? t("Create short link") : t("Edit short link")}
       </div>
       <form className="p-4" onSubmit={onSubmit}>
         <div className="items-center justify-start gap-4 md:flex">
-          <FormSectionColumns title="Target URL" required>
+          <FormSectionColumns title={t("Target URL")} required>
             <div className="flex w-full items-center gap-2">
               <Label className="sr-only" htmlFor="target">
-                Target
+                {t("Target")}
               </Label>
               <Input
                 id="target"
@@ -189,12 +224,12 @@ export function UrlForm({
                 </p>
               ) : (
                 <p className="pb-0.5 text-[13px] text-muted-foreground">
-                  Required. https://your-origin-url
+                  {t("Required")}. https://your-origin-url
                 </p>
               )}
             </div>
           </FormSectionColumns>
-          <FormSectionColumns title="Short Link" required>
+          <FormSectionColumns title={t("Short Link")} required>
             <div className="flex w-full items-center gap-2">
               <Label className="sr-only" htmlFor="url">
                 Url
@@ -207,9 +242,10 @@ export function UrlForm({
                   <Select
                     onValueChange={(value: string) => {
                       setValue("prefix", value);
+                      setCurrentPrefix(value);
                     }}
                     name="prefix"
-                    defaultValue={initData?.prefix || "wr.do"}
+                    defaultValue={validDefaultDomain}
                     disabled={type === "edit"}
                   >
                     <SelectTrigger className="w-1/3 rounded-r-none border-r-0 shadow-inner">
@@ -234,6 +270,7 @@ export function UrlForm({
                   id="url"
                   className="w-full rounded-none pl-[8px] shadow-inner"
                   size={20}
+                  minLength={limitLen}
                   {...register("url")}
                   disabled={type === "edit"}
                 />
@@ -258,7 +295,8 @@ export function UrlForm({
                 </p>
               ) : (
                 <p className="pb-0.5 text-[13px] text-muted-foreground">
-                  A random url suffix. Final url like「wr.do/s/suffix」
+                  {t("A random url suffix")}. {t("Final url like")}
+                  「wr.do/s/suffix」
                 </p>
               )}
             </div>
@@ -266,10 +304,10 @@ export function UrlForm({
         </div>
 
         <div className="items-center justify-start gap-4 md:flex">
-          <FormSectionColumns title="Password (Optional)">
+          <FormSectionColumns title={`${t("Password")} (${t("Optional")})`}>
             <div className="flex w-full items-center gap-2">
               <Label className="sr-only" htmlFor="password">
-                Password
+                {t("Password")}
               </Label>
               <Input
                 id="password"
@@ -277,7 +315,7 @@ export function UrlForm({
                 size={32}
                 maxLength={6}
                 type="password"
-                placeholder="Enter 6 character password"
+                placeholder={t("Enter 6 character password")}
                 {...register("password")}
               />
             </div>
@@ -288,12 +326,12 @@ export function UrlForm({
                 </p>
               ) : (
                 <p className="pb-0.5 text-[13px] text-muted-foreground">
-                  Optional. If you want to protect your link.
+                  {t("Optional")}. {t("If you want to protect your link")}.
                 </p>
               )}
             </div>
           </FormSectionColumns>
-          <FormSectionColumns title="Expiration" required>
+          <FormSectionColumns title={t("Expiration")} required>
             <Select
               onValueChange={(value: string) => {
                 setValue("expiration", value);
@@ -313,7 +351,7 @@ export function UrlForm({
               </SelectContent>
             </Select>
             <p className="p-1 text-[13px] text-muted-foreground">
-              Expiration time, default for never.
+              {t("Expiration time, default for never")}.
             </p>
           </FormSectionColumns>
         </div>
@@ -331,7 +369,7 @@ export function UrlForm({
               {isDeleting ? (
                 <Icons.spinner className="size-4 animate-spin" />
               ) : (
-                <p>Delete</p>
+                <p>{t("Delete")}</p>
               )}
             </Button>
           )}
@@ -341,7 +379,7 @@ export function UrlForm({
             className="w-[80px] px-0"
             onClick={() => setShowForm(false)}
           >
-            Cancle
+            {t("Cancel")}
           </Button>
           <Button
             type="submit"
@@ -352,7 +390,7 @@ export function UrlForm({
             {isPending ? (
               <Icons.spinner className="size-4 animate-spin" />
             ) : (
-              <p>{type === "edit" ? "Update" : "Save"}</p>
+              <p>{type === "edit" ? t("Update") : t("Save")}</p>
             )}
           </Button>
         </div>

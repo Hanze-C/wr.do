@@ -1,11 +1,4 @@
-import { Domain } from "@prisma/client";
-
 import { prisma } from "../db";
-
-// In-memory cache
-let domainConfigCache: Domain[] | null = null;
-let lastCacheUpdate = 0;
-const CACHE_DURATION = 60 * 1000;
 
 export const FeatureMap = {
   short: "enable_short_link",
@@ -21,8 +14,12 @@ export interface DomainConfig {
   cf_zone_id: string | null;
   cf_api_key: string | null;
   cf_email: string | null;
+  cf_record_types: string;
   cf_api_key_encrypted: boolean;
   resend_api_key: string | null;
+  min_url_length: number;
+  min_email_length: number;
+  min_record_length: number;
   max_short_links: number | null;
   max_email_forwards: number | null;
   max_dns_records: number | null;
@@ -76,6 +73,10 @@ export async function getDomainsByFeature(
       where: { [feature]: true },
       select: {
         domain_name: true,
+        cf_record_types: true,
+        min_url_length: true,
+        min_email_length: true,
+        min_record_length: true,
         enable_short_link: admin,
         enable_email: admin,
         enable_dns: admin,
@@ -96,6 +97,13 @@ export async function getDomainsByFeatureClient(feature: string) {
       where: { [feature]: true },
       select: {
         domain_name: true,
+        cf_record_types: true,
+        min_url_length: true,
+        min_email_length: true,
+        min_record_length: true,
+      },
+      orderBy: {
+        updatedAt: "desc",
       },
     });
     return domains;

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import useSWR from "swr";
 
@@ -68,6 +69,8 @@ export function InteractiveBarChart() {
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>("users");
 
+  const t = useTranslations("Components");
+
   const { data, isLoading } = useSWR<{
     list: [
       {
@@ -110,8 +113,8 @@ export function InteractiveBarChart() {
       <CardHeader className="flex flex-col items-stretch space-y-0 border-b p-0 sm:flex-row">
         <div className="flex w-full flex-1 justify-between gap-2 px-6 py-5 sm:flex-col sm:py-6">
           <div className="flex flex-col justify-center gap-1">
-            <CardTitle>Data Increase</CardTitle>
-            <CardDescription>Showing data increase in:</CardDescription>
+            <CardTitle>{t("Data Increase")}</CardTitle>
+            <CardDescription>{t("Showing data increase in")}:</CardDescription>
           </div>
           <Select
             onValueChange={(value: string) => {
@@ -126,7 +129,7 @@ export function InteractiveBarChart() {
             <SelectContent>
               {DATE_DIMENSION_ENUMS.map((e, i) => (
                 <div key={e.value}>
-                  <SelectItem value={e.value}>{e.label}</SelectItem>
+                  <SelectItem value={e.value}>{t(e.label)}</SelectItem>
                   {i % 2 === 0 && i !== DATE_DIMENSION_ENUMS.length - 1 && (
                     <SelectSeparator />
                   )}
@@ -150,7 +153,7 @@ export function InteractiveBarChart() {
                   onClick={() => setActiveChart(chart)}
                 >
                   <span className="text-xs text-muted-foreground">
-                    {chartConfig[chart].label}
+                    {t(chartConfig[chart].label)}
                   </span>
                   <span className="text-base font-bold leading-none sm:text-lg">
                     {nFormatter(data.total[key])}

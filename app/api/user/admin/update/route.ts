@@ -13,6 +13,7 @@ export async function POST(req: Request) {
 
     const { id, data } = await req.json();
 
+    // TODO: update user pwd
     const res = await updateUser(id, {
       name: data.name,
       email: data.email,
@@ -21,6 +22,7 @@ export async function POST(req: Request) {
       team: data.team,
       image: data.image,
       apiKey: data.apiKey,
+      password: data.password,
     });
     if (!res?.id) {
       return Response.json("An error occurred", {
