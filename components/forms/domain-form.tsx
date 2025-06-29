@@ -1,19 +1,13 @@
 "use client";
 
-import {
-  Dispatch,
-  SetStateAction,
-  useEffect,
-  useState,
-  useTransition,
-} from "react";
+import { Dispatch, SetStateAction, useState, useTransition } from "react";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { User } from "@prisma/client";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { getZoneDetail } from "@/lib/cloudflare";
 import { DomainFormData } from "@/lib/dto/domains";
 import { cn } from "@/lib/utils";
 import { createDomainSchema } from "@/lib/validations/domain";
@@ -52,6 +46,7 @@ export function DomainForm({
   action,
   onRefresh,
 }: DomainFormProps) {
+  const t = useTranslations("List");
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   const [isCheckingCf, startCheckCfTransition] = useTransition();
@@ -82,8 +77,12 @@ export function DomainForm({
       cf_zone_id: initData?.cf_zone_id || "",
       cf_api_key: initData?.cf_api_key || "",
       cf_email: initData?.cf_email || "",
+      cf_record_types: initData?.cf_record_types || "CNAME,A,TXT",
       cf_api_key_encrypted: initData?.cf_api_key_encrypted || false,
       resend_api_key: initData?.resend_api_key || "",
+      min_url_length: initData?.min_url_length,
+      min_email_length: initData?.min_email_length,
+      min_record_length: initData?.min_record_length,
       max_short_links: initData?.max_short_links || 0,
       max_email_forwards: initData?.max_email_forwards || 0,
       max_dns_records: initData?.max_dns_records || 0,
@@ -210,11 +209,12 @@ export function DomainForm({
           setIsCheckedResendConfig(true);
           return;
         }
+      } else {
+        setIsCheckedResendConfig(false);
+        toast.error("Failed to send email", {
+          description: await res.text(),
+        });
       }
-      setIsCheckedResendConfig(false);
-      toast.error("Access Failed", {
-        description: "Please check your Resend API key and try again.",
-      });
     });
   };
 
@@ -238,24 +238,24 @@ export function DomainForm({
     >
       {isChecking && <Icons.spinner className="mr-1 size-3 animate-spin" />}
       {isChecked && !isChecking && <Icons.check className="mr-1 size-3" />}
-      {isChecked ? "Ready" : "Access Check"}
+      {isChecked ? t("Verified") : t("Verify Configuration")}
     </Badge>
   );
 
   return (
     <div>
       <div className="rounded-t-lg bg-muted px-4 py-2 text-lg font-semibold">
-        {type === "add" ? "Create" : "Edit"} Domain
+        {type === "add" ? t("Create Domain") : t("Edit Domain")}
       </div>
       <form className="p-4" onSubmit={onSubmit}>
         <div className="relative flex flex-col items-center justify-start gap-0 rounded-md bg-neutral-100 p-4 dark:bg-neutral-800">
           <h2 className="absolute left-2 top-2 text-xs font-semibold text-neutral-400">
-            Base
+            {t("Base")}
           </h2>
           <FormSectionColumns title="">
             <div className="flex w-full items-start justify-between gap-2">
               <Label className="mt-2.5 text-nowrap" htmlFor="domain_name">
-                Domain Name:
+                {t("Domain Name")}:
               </Label>
               <div className="w-full sm:w-3/5">
                 <Input
@@ -271,7 +271,7 @@ export function DomainForm({
                     </p>
                   ) : (
                     <p className="pb-0.5 text-[13px] text-muted-foreground">
-                      Required. eg: example.com
+                      {t("Required")}. {t("Example")} example.com
                     </p>
                   )}
                 </div>
@@ -281,7 +281,7 @@ export function DomainForm({
 
           <div className="flex w-full items-center justify-between gap-2">
             <Label className="" htmlFor="active">
-              Active:
+              {t("Active")}:
             </Label>
             <Switch
               id="active"
@@ -295,12 +295,12 @@ export function DomainForm({
 
         <div className="relative mt-2 flex flex-col items-center justify-start gap-4 rounded-md bg-neutral-100 p-4 pt-10 dark:bg-neutral-800">
           <h2 className="absolute left-2 top-2 text-xs font-semibold text-neutral-400">
-            Services(Optional)
+            {t("Services")} ({t("Optional")})
           </h2>
 
           <div className="flex w-full items-center justify-between gap-2">
             <Label className="" htmlFor="short_url_service">
-              Short URL Service:
+              {t("Shorten Service")}:
             </Label>
             <Switch
               id="short_url_service"
@@ -312,7 +312,7 @@ export function DomainForm({
 
           <div className="flex w-full items-center justify-between gap-2">
             <Label className="" htmlFor="email_service">
-              Email Service:
+              {t("Email Service")}:
             </Label>
             <Switch
               id="email_service"
@@ -327,7 +327,7 @@ export function DomainForm({
 
           <div className="flex w-full items-center justify-between gap-2">
             <Label className="cursor-pointer" htmlFor="dns_record_service">
-              DNS Record Service:
+              {t("Subdomain Service")}:
             </Label>
             <Switch
               id="dns_record_service"
@@ -343,8 +343,9 @@ export function DomainForm({
 
         <Collapsible className="relative mt-2 rounded-md bg-neutral-100 p-4 dark:bg-neutral-800">
           <CollapsibleTrigger className="flex w-full items-center justify-between">
-            <h2 className="absolute left-2 top-5 text-xs font-semibold text-neutral-400">
-              Cloudflare Configs (Optional)
+            <h2 className="absolute left-2 top-5 flex gap-2 text-xs font-semibold text-neutral-400">
+              {t("Cloudflare Configs")} ({t("Optional")})
+              <Icons.cloudflare className="mx-0.5 size-4" />
             </h2>
             {ReadyBadge(
               currentRecordStatus,
@@ -357,14 +358,14 @@ export function DomainForm({
           <CollapsibleContent>
             {!currentRecordStatus && (
               <div className="mt-3 flex items-center gap-1 rounded bg-neutral-200 p-2 text-xs dark:bg-neutral-700">
-                <Icons.help className="size-3" /> Associate with "DNS Record
-                Service" status
+                <Icons.help className="size-3" />{" "}
+                {t("Associate with 'Subdomain Service' status")}
               </div>
             )}
             <FormSectionColumns title="">
               <div className="flex w-full items-start justify-between gap-2">
                 <Label className="mt-2.5 text-nowrap" htmlFor="zone_id">
-                  Zone ID:
+                  {"Zone ID"}:
                 </Label>
                 <div className="w-full sm:w-3/5">
                   <Input
@@ -381,13 +382,13 @@ export function DomainForm({
                       </p>
                     ) : (
                       <p className="pb-0.5 text-[13px] text-muted-foreground">
-                        Optional.{" "}
+                        {t("Optional")}.{" "}
                         <Link
                           className="text-blue-500"
                           href="/docs/developer/cloudflare"
                           target="_blank"
                         >
-                          How to get zone id?
+                          {t("How to get zone id?")}
                         </Link>
                       </p>
                     )}
@@ -398,7 +399,7 @@ export function DomainForm({
             <FormSectionColumns title="">
               <div className="flex w-full items-start justify-between gap-2">
                 <Label className="mt-2.5 text-nowrap" htmlFor="api-key">
-                  API Token:
+                  {t("API Token")}:
                 </Label>
                 <div className="w-full sm:w-3/5">
                   <Input
@@ -415,13 +416,13 @@ export function DomainForm({
                       </p>
                     ) : (
                       <p className="pb-0.5 text-[13px] text-muted-foreground">
-                        Optional.{" "}
+                        {t("Optional")}.{" "}
                         <Link
                           className="text-blue-500"
                           href="/docs/developer/cloudflare"
                           target="_blank"
                         >
-                          How to get api token?
+                          {t("How to get api token?")}
                         </Link>
                       </p>
                     )}
@@ -432,7 +433,7 @@ export function DomainForm({
             <FormSectionColumns title="">
               <div className="flex w-full items-start justify-between gap-2">
                 <Label className="mt-2.5 text-nowrap" htmlFor="email">
-                  Account Email:
+                  {t("Account Email")}:
                 </Label>
                 <div className="w-full sm:w-3/5">
                   <Input
@@ -449,14 +450,42 @@ export function DomainForm({
                       </p>
                     ) : (
                       <p className="pb-0.5 text-[13px] text-muted-foreground">
-                        Optional.{" "}
+                        {t("Optional")}.{" "}
                         <Link
                           className="text-blue-500"
                           href="/docs/developer/cloudflare"
                           target="_blank"
                         >
-                          How to get cloudflare account email?
+                          {t("How to get cloudflare account email?")}
                         </Link>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </FormSectionColumns>
+            <FormSectionColumns title="">
+              <div className="flex w-full items-start justify-between gap-2">
+                <Label className="mt-2.5 text-nowrap" htmlFor="record-types">
+                  {t("Record Types")}:
+                </Label>
+                <div className="w-full sm:w-3/5">
+                  <Input
+                    id="record-types"
+                    className="flex-1 bg-neutral-50 shadow-inner"
+                    size={32}
+                    {...register("cf_record_types")}
+                    disabled={!currentRecordStatus}
+                  />
+                  <div className="flex flex-col justify-between p-1">
+                    {errors?.cf_record_types ? (
+                      <p className="pb-0.5 text-[13px] text-red-600">
+                        {errors.cf_record_types.message}
+                      </p>
+                    ) : (
+                      <p className="pb-0.5 text-[13px] text-muted-foreground">
+                        {t("Required")}. {t("Allowed record types")},{" "}
+                        {t("use `,` to separate")}
                       </p>
                     )}
                   </div>
@@ -468,8 +497,9 @@ export function DomainForm({
 
         <Collapsible className="relative mt-2 rounded-md bg-neutral-100 p-4 dark:bg-neutral-800">
           <CollapsibleTrigger className="flex w-full items-center justify-between">
-            <h2 className="absolute left-2 top-5 text-xs font-semibold text-neutral-400">
-              Resend Configs (Optional)
+            <h2 className="absolute left-2 top-5 flex gap-2 text-xs font-semibold text-neutral-400">
+              {t("Resend Configs")} ({t("Optional")})
+              <Icons.resend className="mx-0.5 size-4" />
             </h2>
             {ReadyBadge(
               currentEmailStatus,
@@ -482,14 +512,14 @@ export function DomainForm({
           <CollapsibleContent>
             {!currentEmailStatus && (
               <div className="mt-3 flex items-center gap-1 rounded bg-neutral-200 p-2 text-xs dark:bg-neutral-700">
-                <Icons.help className="size-3" /> Associate with "Email Service"
-                status
+                <Icons.help className="size-3" />{" "}
+                {t("Associate with 'Email Service' status")}
               </div>
             )}
             <FormSectionColumns title="">
               <div className="flex w-full items-start justify-between gap-2">
                 <Label className="mt-2.5 text-nowrap" htmlFor="zone_id">
-                  API Key (send email service):
+                  {t("API Key")} ({t("send email service")}):
                 </Label>
                 <div className="w-full sm:w-3/5">
                   <Input
@@ -506,13 +536,13 @@ export function DomainForm({
                       </p>
                     ) : (
                       <p className="pb-0.5 text-[13px] text-muted-foreground">
-                        Optional.{" "}
+                        {t("Optional")}.{" "}
                         <Link
                           className="text-blue-500"
                           href="/docs/developer/email"
                           target="_blank"
                         >
-                          How to get resend api key?
+                          {t("How to get resend api key?")}
                         </Link>
                       </p>
                     )}
@@ -520,6 +550,64 @@ export function DomainForm({
                 </div>
               </div>
             </FormSectionColumns>
+          </CollapsibleContent>
+        </Collapsible>
+
+        <Collapsible className="relative mt-2 rounded-md bg-neutral-100 p-4 dark:bg-neutral-800">
+          <CollapsibleTrigger className="flex w-full items-center justify-between">
+            <h2 className="absolute left-2 top-4 flex gap-2 text-xs font-semibold text-neutral-400">
+              {t("Limit Configs")} ({t("Optional")})
+            </h2>
+            <Icons.chevronDown className="ml-auto size-4" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3 space-y-2">
+            <div className="flex w-full items-center justify-between gap-2">
+              <Label className="cursor-pointer" htmlFor="min_url_length">
+                {t("Min URL Length")}:
+              </Label>
+              <Input
+                id="target"
+                className="max-w-20 flex-1 bg-neutral-50 shadow-inner"
+                size={32}
+                type="number"
+                defaultValue={initData?.min_url_length ?? 3}
+                {...register("min_url_length", {
+                  valueAsNumber: true,
+                })}
+              />
+            </div>
+
+            <div className="flex w-full items-center justify-between gap-2">
+              <Label className="cursor-pointer" htmlFor="min_email_length">
+                {t("Min Email Length")}:
+              </Label>
+              <Input
+                id="target"
+                className="max-w-20 flex-1 bg-neutral-50 shadow-inner"
+                size={32}
+                type="number"
+                defaultValue={initData?.min_email_length ?? 3}
+                {...register("min_email_length", {
+                  valueAsNumber: true,
+                })}
+              />
+            </div>
+
+            <div className="flex w-full items-center justify-between gap-2">
+              <Label className="cursor-pointer" htmlFor="min_subdomain_length">
+                {t("Min Subdomain Length")}:
+              </Label>
+              <Input
+                id="target"
+                className="max-w-20 flex-1 bg-neutral-50 shadow-inner"
+                size={32}
+                type="number"
+                defaultValue={initData?.min_record_length ?? 3}
+                {...register("min_record_length", {
+                  valueAsNumber: true,
+                })}
+              />
+            </div>
           </CollapsibleContent>
         </Collapsible>
 
@@ -536,7 +624,7 @@ export function DomainForm({
               {isDeleting ? (
                 <Icons.spinner className="size-4 animate-spin" />
               ) : (
-                <p>Delete</p>
+                <p>{t("Delete")}</p>
               )}
             </Button>
           )}
@@ -546,7 +634,7 @@ export function DomainForm({
             className="w-[80px] px-0"
             onClick={() => setShowForm(false)}
           >
-            Cancle
+            {t("Cancel")}
           </Button>
           <Button
             type="submit"
@@ -557,7 +645,7 @@ export function DomainForm({
             {isPending ? (
               <Icons.spinner className="size-4 animate-spin" />
             ) : (
-              <p>{type === "edit" ? "Update" : "Save"}</p>
+              <p>{type === "edit" ? t("Update") : t("Save")}</p>
             )}
           </Button>
         </div>

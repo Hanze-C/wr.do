@@ -1,6 +1,6 @@
 "use server";
 
-import { UserRole } from "@prisma/client";
+import { User, UserRole } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import {
@@ -24,12 +24,13 @@ export type UserRecordFormData = {
   tags: string;
   created_on?: string;
   modified_on?: string;
-  active: number; // 0: inactive, 1: active, 2: pending
+  active: number; // 0: inactive, 1: active, 2: pending, 3: rejected
+  user: Pick<User, "name" | "email">;
 };
 
 export async function createUserRecord(
   userId: string,
-  data: UserRecordFormData,
+  data: Omit<UserRecordFormData, "user">,
 ) {
   try {
     const {
@@ -77,6 +78,58 @@ export async function createUserRecord(
   }
 }
 
+export async function updateUserRecordReview(
+  userId: string,
+  id: string,
+  data: Omit<UserRecordFormData, "user">,
+) {
+  try {
+    const {
+      record_id,
+      zone_id,
+      zone_name,
+      name,
+      type,
+      content,
+      ttl,
+      proxied,
+      proxiable,
+      comment,
+      tags,
+      created_on,
+      modified_on,
+      active,
+    } = createUserRecordSchema.parse(data);
+
+    const res = await prisma.userRecord.update({
+      where: {
+        id,
+      },
+      data: {
+        userId,
+        record_id,
+        zone_id,
+        zone_name,
+        name,
+        type,
+        content,
+        ttl,
+        proxied,
+        proxiable,
+        comment,
+        tags,
+        created_on,
+        modified_on,
+        active,
+      },
+    });
+    return { status: "success", data: res };
+  } catch (error) {
+    console.log(error);
+    return { status: error };
+  }
+}
+
 export async function getUserRecords(
   userId: string,
   active: number = 1,
@@ -88,14 +141,14 @@ export async function getUserRecords(
     role === "USER"
       ? {
           userId,
-          active: {
-            not: 2,
-          },
+          // active: {
+          //   not: 2,
+          // },
         }
       : {
-          active: {
-            not: 2,
-          },
+          // active: {
+          //   not: 2,
+          // },
         };
   const [total, list] = await prisma.$transaction([
     prisma.userRecord.count({
@@ -105,6 +158,30 @@ export async function getUserRecords(
       where: option,
       skip: (page - 1) * size,
       take: size,
+      select: {
+        id: true,
+        record_id: true,
+        zone_id: true,
+        zone_name: true,
+        name: true,
+        type: true,
+        content: true,
+        ttl: true,
+        proxied: true,
+        proxiable: true,
+        comment: true,
+        tags: true,
+        created_on: true,
+        modified_on: true,
+        active: true,
+        userId: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
       orderBy: {
         modified_on: "desc",
       },
@@ -152,11 +229,51 @@ export async function getUserRecordCount(
   }
 }
 
+export async function getUserRecordStatus(
+  userId: string,
+  role: UserRole = "USER",
+) {
+  const whereCondition = role === "USER" ? { userId } : {};
+
+  const statusCounts = await prisma.userRecord.groupBy({
+    by: ["active"],
+    where: whereCondition,
+    _count: {
+      _all: true,
+    },
+  });
+
+  const total = await prisma.userRecord.count({
+    where: whereCondition,
+  });
+
+  const counts = statusCounts.reduce(
+    (acc, item) => {
+      // if (!item.active) {
+      //   acc[0] = item._count._all;
+      //   return acc;
+      // }
+      acc[item.active ?? 0] = item._count._all;
+      return acc;
+    },
+    {} as Record<number, number>,
+  );
+
+  return {
+    total,
+    inactive: counts[0] || 0,
+    active: counts[1] || 0,
+    pending: counts[2] || 0,
+    rejected: counts[3] || 0,
+  };
+}
+
 export async function getUserRecordByTypeNameContent(
   userId: string,
   type: string,
   name: string,
   content: string,
+  zone_name: string,
   active: number = 1,
 ) {
   return await prisma.userRecord.findMany({
@@ -165,7 +282,10 @@ export async function getUserRecordByTypeNameContent(
       type,
       // content,
       name,
-      // active,
+      zone_name,
+      active: {
+        not: 3,
+      },
     },
   });
 }
@@ -188,7 +308,7 @@ export async function deleteUserRecord(
 
 export async function updateUserRecord(
   userId: string,
-  data: UserRecordFormData,
+  data: Omit<UserRecordFormData, "user">,
 ) {
   try {
     const {

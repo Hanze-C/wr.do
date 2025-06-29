@@ -4,6 +4,7 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     NEXTAUTH_URL: z.string().url().optional(),
+    AUTH_URL: z.string().optional(),
     AUTH_SECRET: z.string().optional(),
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
@@ -19,12 +20,13 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().optional(),
-    NEXT_PUBLIC_OPEN_SIGNUP: z.string().min(1).default("1"),
     NEXT_PUBLIC_EMAIL_R2_DOMAIN: z.string().optional(),
-    NEXT_PUBLIC_ENABLE_SUBDOMAIN_APPLY: z.string().min(1).default("0"),
+    NEXT_PUBLIC_SUPPORT_EMAIL: z.string().optional(),
+    NEXT_PUBLIC_APP_NAME: z.string().optional(),
   },
   runtimeEnv: {
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    AUTH_URL: process.env.AUTH_URL,
     AUTH_SECRET: process.env.AUTH_SECRET,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
@@ -34,10 +36,9 @@ export const env = createEnv({
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-    NEXT_PUBLIC_OPEN_SIGNUP: process.env.NEXT_PUBLIC_OPEN_SIGNUP,
     NEXT_PUBLIC_EMAIL_R2_DOMAIN: process.env.NEXT_PUBLIC_EMAIL_R2_DOMAIN,
-    NEXT_PUBLIC_ENABLE_SUBDOMAIN_APPLY:
-      process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_APPLY,
+    NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
     SCREENSHOTONE_BASE_URL: process.env.SCREENSHOTONE_BASE_URL,
     GITHUB_TOKEN: process.env.GITHUB_TOKEN,
     LinuxDo_CLIENT_ID: process.env.LinuxDo_CLIENT_ID,

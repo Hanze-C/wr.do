@@ -1,4 +1,3 @@
-import { TeamPlanQuota } from "@/config/team";
 import { createDNSRecord } from "@/lib/cloudflare";
 import {
   createUserRecord,
@@ -6,8 +5,8 @@ import {
   getUserRecordCount,
 } from "@/lib/dto/cloudflare-dns-record";
 import { getDomainsByFeature } from "@/lib/dto/domains";
+import { getPlanQuota } from "@/lib/dto/plan";
 import { checkUserStatus, getUserByEmail } from "@/lib/dto/user";
-import { reservedDomains } from "@/lib/enums";
 import { getCurrentUser } from "@/lib/session";
 import { generateSecret } from "@/lib/utils";
 
@@ -39,8 +38,10 @@ export async function POST(req: Request) {
       });
     }
 
+    const plan = await getPlanQuota(user.team);
+
     const { total } = await getUserRecordCount(target_user.id);
-    if (total >= TeamPlanQuota[target_user.team!].RC_NewRecords) {
+    if (total >= plan.rcNewRecords) {
       return Response.json("Your records have reached the free limit.", {
         status: 409,
       });
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       id: generateSecret(16),
     };
 
-    let record_name = ["A", "CNAME"].includes(record.type)
+    let record_name = ["A", "CNAME", "AAAA"].includes(record.type)
       ? record.name
       : `${record.name}.${record.zone_name}`;
 
@@ -74,17 +75,12 @@ export async function POST(req: Request) {
       );
     }
 
-    if (reservedDomains.includes(record_name)) {
-      return Response.json("Domain name is reserved", {
-        status: 403,
-      });
-    }
-
     const user_record = await getUserRecordByTypeNameContent(
       target_user.id,
       record.type,
       record_name,
       record.content,
+      record.zone_name,
       1,
     );
     if (user_record && user_record.length > 0) {
@@ -102,7 +98,7 @@ export async function POST(req: Request) {
 
     if (!data.success || !data.result?.id) {
       // console.log("[data]", data);
-      return Response.json(data.messages, {
+      return Response.json(data.errors[0].message, {
         status: 501,
       });
     } else {

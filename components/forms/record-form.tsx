@@ -1,16 +1,23 @@
 "use client";
 
-import { Dispatch, SetStateAction, useState, useTransition } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { User } from "@prisma/client";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import useSWR from "swr";
 
-import { siteConfig } from "@/config/site";
 import { CreateDNSRecord, RecordType } from "@/lib/cloudflare";
 import { UserRecordFormData } from "@/lib/dto/cloudflare-dns-record";
-import { RECORD_TYPE_ENUMS, TTL_ENUMS } from "@/lib/enums";
+import { TTL_ENUMS } from "@/lib/enums";
 import { fetcher } from "@/lib/utils";
 import { createRecordSchema } from "@/lib/validations/record";
 import { Button } from "@/components/ui/button";
@@ -28,6 +35,7 @@ import {
 } from "../ui/select";
 import { Skeleton } from "../ui/skeleton";
 import { Switch } from "../ui/switch";
+import { Textarea } from "../ui/textarea";
 
 export type FormData = CreateDNSRecord;
 
@@ -55,43 +63,90 @@ export function RecordForm({
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   const [currentRecordType, setCurrentRecordType] = useState(
-    initData?.type || "CNAME",
+    initData?.type || "A",
   );
-  const [currentZoneName, setCurrentZoneName] = useState(
-    initData?.zone_name || "wr.do",
-  );
-  const [email, setEmail] = useState(user.email);
+  const [currentZoneName, setCurrentZoneName] = useState(initData?.zone_name);
+  const [limitLen, setLimitLen] = useState(3);
+  const [email, setEmail] = useState(initData?.user.email || user.email);
+  const [allowedRecordTypes, setAllowedRecordTypes] = useState<string[]>([]);
+  const isAdmin = action.indexOf("admin") > -1;
+
+  const t = useTranslations("List");
 
   const {
     handleSubmit,
     register,
     formState: { errors },
+    getValues,
     setValue,
   } = useForm<FormData>({
     resolver: zodResolver(createRecordSchema),
     defaultValues: {
-      zone_name: initData?.zone_name || "wr.do",
-      type: initData?.type || "CNAME",
+      zone_name: initData?.zone_name,
+      type: initData?.type || "A",
       ttl: initData?.ttl || 1,
       proxied: initData?.proxied || false,
-      comment: "Created by wr.do",
+      comment: initData?.comment || "",
       name: initData?.name ? initData.name.split(".")[0] : "",
       content: initData?.content || "",
     },
   });
 
   // Fetch the record domains
-  const { data: recordDomains, isLoading } = useSWR<{ domain_name: string }[]>(
-    "/api/domain?feature=record",
-    fetcher,
+  const { data: recordDomains, isLoading } = useSWR<
     {
-      revalidateOnFocus: false,
-      dedupingInterval: 10000,
-    },
+      domain_name: string;
+      cf_record_types: string;
+      min_record_length: number;
+    }[]
+  >("/api/domain?feature=record", fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 10000,
+  });
+
+  const { data: configs } = useSWR<Record<string, any>>(
+    "/api/configs?key=enable_subdomain_apply",
+    fetcher,
   );
 
+  const validDefaultDomain = useMemo(() => {
+    if (!recordDomains?.length) return undefined;
+
+    if (
+      initData?.zone_name &&
+      recordDomains.some((d) => d.domain_name === initData.zone_name)
+    ) {
+      return initData.zone_name;
+    }
+
+    return recordDomains[0].domain_name;
+  }, [recordDomains, initData?.zone_name]);
+
+  useEffect(() => {
+    if (validDefaultDomain) {
+      setValue("zone_name", validDefaultDomain);
+      setCurrentZoneName(validDefaultDomain);
+    }
+  }, [validDefaultDomain]);
+
+  useEffect(() => {
+    if (recordDomains && recordDomains.length > 0) {
+      setAllowedRecordTypes(
+        recordDomains
+          .find((d) => d.domain_name === validDefaultDomain)!
+          .cf_record_types.split(","),
+      );
+      setLimitLen(
+        recordDomains.find((d) => d.domain_name === currentZoneName)
+          ?.min_record_length || 3,
+      );
+    }
+  }, [currentZoneName, recordDomains, validDefaultDomain]);
+
   const onSubmit = handleSubmit((data) => {
-    if (type === "add") {
+    if (isAdmin && type === "edit" && initData?.active === 2) {
+      handleApplyRecord(data);
+    } else if (type === "add") {
       handleCreateRecord(data);
     } else if (type === "edit") {
       handleUpdateRecord(data);
@@ -99,25 +154,28 @@ export function RecordForm({
   });
 
   const handleCreateRecord = async (data: CreateDNSRecord) => {
-    startTransition(async () => {
-      const response = await fetch(`${action}/add`, {
-        method: "POST",
-        body: JSON.stringify({
-          records: [data],
-          email,
-        }),
-      });
-
-      if (!response.ok || response.status !== 200) {
-        toast.error("Created Failed!", {
-          description: await response.text(),
+    if (configs?.enable_subdomain_apply && data.comment!.length < 20) {
+      toast.warning("Apply reason must be at least 20 characters!");
+    } else {
+      startTransition(async () => {
+        const response = await fetch(`${action}/add`, {
+          method: "POST",
+          body: JSON.stringify({
+            records: [data],
+            email,
+          }),
         });
-      } else {
-        toast.success(`Created successfully!`);
-        setShowForm(false);
-        onRefresh();
-      }
-    });
+        if (!response.ok || response.status !== 200) {
+          toast.error("Created Failed!", {
+            description: await response.text(),
+          });
+        } else {
+          toast.success(`Created successfully!`);
+          setShowForm(false);
+          onRefresh();
+        }
+      });
+    }
   };
 
   const handleUpdateRecord = async (data: CreateDNSRecord) => {
@@ -136,7 +194,31 @@ export function RecordForm({
             description: await response.text(),
           });
         } else {
-          const res = await response.json();
+          toast.success(`Update successfully!`);
+          setShowForm(false);
+          onRefresh();
+        }
+      }
+    });
+  };
+
+  const handleRejectRecord = async (data: CreateDNSRecord) => {
+    startTransition(async () => {
+      if (type === "edit") {
+        const response = await fetch(`${action}/reject`, {
+          method: "POST",
+          body: JSON.stringify({
+            id: initData?.id,
+            userId: initData?.userId,
+            record: data,
+            recordId: initData?.record_id,
+          }),
+        });
+        if (!response.ok || response.status !== 200) {
+          toast.error("Update Failed", {
+            description: await response.text(),
+          });
+        } else {
           toast.success(`Update successfully!`);
           setShowForm(false);
           onRefresh();
@@ -171,18 +253,53 @@ export function RecordForm({
     }
   };
 
+  const handleApplyRecord = async (data: CreateDNSRecord) => {
+    startTransition(async () => {
+      const response = await fetch(`${action}/apply`, {
+        method: "POST",
+        body: JSON.stringify({
+          record: data,
+          recordId: initData?.record_id,
+          userId: initData?.userId,
+          id: initData?.id,
+        }),
+      });
+      if (!response.ok || response.status !== 200) {
+        toast.error("Failed", {
+          description: await response.text(),
+        });
+      } else {
+        await response.json();
+        toast.success(`Success`);
+        setShowForm(false);
+        onRefresh();
+      }
+    });
+  };
+
   return (
     <div>
       <div className="rounded-t-lg bg-muted px-4 py-2 text-lg font-semibold">
-        {type === "add" ? "Create" : "Edit"} record
+        {type === "add" ? t("Create record") : t("Edit record")}
       </div>
+      {configs?.enable_subdomain_apply && (
+        <ul className="m-2 list-disc gap-1 rounded-md bg-yellow-600/10 p-2 px-5 pr-2 text-xs font-medium text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-500">
+          <li>{t("The administrator has enabled application mode")}.</li>
+          <li>
+            {t(
+              "After submission, you need to wait for administrator approval before the record takes effect",
+            )}
+            .
+          </li>
+        </ul>
+      )}
       <form className="p-4" onSubmit={onSubmit}>
-        {action.indexOf("admin") > -1 && (
+        {isAdmin && (
           <div className="items-center justify-start gap-4 md:flex">
-            <FormSectionColumns required title="User email">
+            <FormSectionColumns required title={t("User email")}>
               <div className="flex w-full items-center gap-2">
                 <Label className="sr-only" htmlFor="content">
-                  User email
+                  {t("User email")}
                 </Label>
                 <Input
                   id="email"
@@ -190,6 +307,7 @@ export function RecordForm({
                   size={32}
                   defaultValue={email || ""}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={type === "edit"}
                 />
               </div>
               <div className="flex flex-col justify-between p-1">
@@ -207,8 +325,29 @@ export function RecordForm({
           </div>
         )}
 
+        {configs?.enable_subdomain_apply && (
+          <FormSectionColumns
+            title={t("What are you planning to use the subdomain for?")}
+            required
+          >
+            <div className="flex items-center gap-2">
+              <Label className="sr-only" htmlFor="comment">
+                {t("What are you planning to use the subdomain for?")}
+              </Label>
+              <Textarea
+                id="comment"
+                className="flex-2 shadow-inner"
+                // size={74}
+                {...register("comment")}
+              />
+            </div>
+            <p className="p-1 text-[13px] text-muted-foreground">
+              {t("At least 20 characters, Max 100 characters")}
+            </p>
+          </FormSectionColumns>
+        )}
         <div className="items-center justify-start gap-4 md:flex">
-          <FormSectionColumns title="Domain" required>
+          <FormSectionColumns title={t("Domain")} required>
             {isLoading ? (
               <Skeleton className="h-9 w-full" />
             ) : (
@@ -218,7 +357,7 @@ export function RecordForm({
                   setCurrentZoneName(value);
                 }}
                 name="zone_name"
-                defaultValue={String(initData?.zone_name || "wr.do")}
+                defaultValue={validDefaultDomain}
                 disabled={type === "edit"}
               >
                 <SelectTrigger className="w-full shadow-inner">
@@ -233,55 +372,60 @@ export function RecordForm({
                     ))
                   ) : (
                     <Button className="w-full" variant="ghost">
-                      No domains configured
+                      {t("No domains configured")}
                     </Button>
                   )}
                 </SelectContent>
               </Select>
             )}
             <p className="p-1 text-[13px] text-muted-foreground">
-              Required. Select a domain.
+              {t("Required")}. {t("Select a domain")}.
             </p>
           </FormSectionColumns>
-          <FormSectionColumns title="Type" required>
-            <Select
-              onValueChange={(value: RecordType) => {
-                setValue("type", value);
-                setCurrentRecordType(value);
-              }}
-              name={"type"}
-              defaultValue={initData?.type || "CNAME"}
-            >
-              <SelectTrigger className="w-full shadow-inner">
-                <SelectValue placeholder="Select a type" />
-              </SelectTrigger>
-              <SelectContent>
-                {RECORD_TYPE_ENUMS.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="p-1 text-[13px] text-muted-foreground">Required.</p>
+          <FormSectionColumns title={t("Type")} required>
+            {isLoading ? (
+              <Skeleton className="h-9 w-full" />
+            ) : (
+              <Select
+                onValueChange={(value: RecordType) => {
+                  setValue("type", value);
+                  setCurrentRecordType(value);
+                }}
+                name={"type"}
+                defaultValue={initData?.type || "A"}
+              >
+                <SelectTrigger className="w-full shadow-inner">
+                  <SelectValue placeholder="Select a type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allowedRecordTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <p className="p-1 text-[13px] text-muted-foreground">
+              {t("Required")}.
+            </p>
           </FormSectionColumns>
         </div>
-
         <div className="items-center justify-start gap-4 md:flex">
-          <FormSectionColumns title="Name" required>
+          <FormSectionColumns title={t("Name")} required>
             <div className="flex w-full items-center gap-2">
               <Label className="sr-only" htmlFor="name">
-                Name (required)
+                {t("Name")}
               </Label>
               <div className="relative w-full">
                 <Input
                   id="name"
                   className="flex-1 shadow-inner"
                   size={32}
+                  minLength={limitLen}
                   {...register("name")}
                 />
-                {(currentRecordType === "CNAME" ||
-                  currentRecordType === "A") && (
+                {["CNAME", "A", "AAAA"].includes(currentRecordType) && (
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-500">
                     .{currentZoneName}
                   </span>
@@ -295,7 +439,7 @@ export function RecordForm({
                 </p>
               ) : (
                 <p className="pb-0.5 text-[13px] text-muted-foreground">
-                  Required. E.g. www.
+                  {t("Required")}. {t("Example")} www
                 </p>
               )}
             </div>
@@ -303,16 +447,16 @@ export function RecordForm({
           <FormSectionColumns
             required
             title={
-              currentRecordType === "CNAME"
-                ? "Content"
-                : currentRecordType === "A"
-                  ? "IPv4 address"
-                  : "Content"
+              ["CNAME"].includes(currentRecordType)
+                ? t("Content")
+                : ["A", "AAAA"].includes(currentRecordType)
+                  ? t("IPv4 address")
+                  : t("Content")
             }
           >
             <div className="flex w-full items-center gap-2">
               <Label className="sr-only" htmlFor="content">
-                Content
+                t("Content")
               </Label>
               <Input
                 id="content"
@@ -328,34 +472,17 @@ export function RecordForm({
                 </p>
               ) : (
                 <p className="pb-0.5 text-[13px] text-muted-foreground">
-                  {currentRecordType === "CNAME"
-                    ? "Required. E.g. www.example.com"
-                    : currentRecordType === "A"
-                      ? "Required. E.g. 8.8.8.8"
-                      : "Required."}
+                  {["CNAME"].includes(currentRecordType)
+                    ? `${t("Required")}. ${t("Example")} www.example.com`
+                    : ["A", "AAAA"].includes(currentRecordType)
+                      ? `${t("Required")}. ${t("Example")} 8.8.8.8`
+                      : t("Required")}
                 </p>
               )}
             </div>
           </FormSectionColumns>
         </div>
-
         <div className="items-center justify-start gap-4 md:flex">
-          {/* <FormSectionColumns title="Comment">
-            <div className="flex items-center gap-2">
-              <Label className="sr-only" htmlFor="comment">
-                Comment
-              </Label>
-              <Input
-                id="comment"
-                className="flex-2 shadow-inner"
-                size={74}
-                {...register("comment")}
-              />
-            </div>
-            <p className="p-1 text-[13px] text-muted-foreground">
-              Enter your comment here (up to 100 characters)
-            </p>
-          </FormSectionColumns> */}
           <FormSectionColumns title="TTL" required>
             <Select
               onValueChange={(value: string) => {
@@ -376,14 +503,14 @@ export function RecordForm({
               </SelectContent>
             </Select>
             <p className="p-1 text-[13px] text-muted-foreground">
-              Optional. Time To Live.
+              {t("Optional")}. {t("Time To Live")}.
             </p>
           </FormSectionColumns>
-          {["A", "CNAME"].includes(currentRecordType) && (
-            <FormSectionColumns title="Proxy">
+          {["CNAME", "A", "AAAA"].includes(currentRecordType) && (
+            <FormSectionColumns title={t("Proxy")}>
               <div className="flex w-full items-center gap-2">
                 <Label className="sr-only" htmlFor="proxy">
-                  Proxy
+                  {t("Proxy")}
                 </Label>
                 <Switch
                   id="proxied"
@@ -392,12 +519,11 @@ export function RecordForm({
                 />
               </div>
               <p className="p-1 text-[13px] text-muted-foreground">
-                Proxy status.
+                {t("Proxy status")}.
               </p>
             </FormSectionColumns>
           )}
         </div>
-
         {/* Action buttons */}
         <div className="mt-3 flex justify-end gap-3">
           {type === "edit" && (
@@ -411,30 +537,53 @@ export function RecordForm({
               {isDeleting ? (
                 <Icons.spinner className="size-4 animate-spin" />
               ) : (
-                <p>Delete</p>
+                <p>{t("Delete")}</p>
               )}
             </Button>
           )}
+
           <Button
             type="reset"
             variant="outline"
             className="w-[80px] px-0"
             onClick={() => setShowForm(false)}
           >
-            Cancle
+            {t("Cancel")}
           </Button>
-          <Button
-            type="submit"
-            variant="blue"
-            disabled={isPending}
-            className="w-[80px] shrink-0 px-0"
-          >
-            {isPending ? (
-              <Icons.spinner className="size-4 animate-spin" />
-            ) : (
-              <p>{type === "edit" ? "Update" : "Save"}</p>
-            )}
-          </Button>
+          {type === "edit" && initData?.active === 2 && isAdmin && (
+            <Button
+              type="button"
+              className="w-[80px] px-0"
+              onClick={() => handleRejectRecord(getValues())}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <Icons.spinner className="size-4 animate-spin" />
+              ) : (
+                <p>{t("Reject")}</p>
+              )}
+            </Button>
+          )}
+          {initData?.active !== 3 && (
+            <Button
+              type="submit"
+              variant="blue"
+              disabled={isPending}
+              className="w-[80px] shrink-0 px-0"
+            >
+              {isPending ? (
+                <Icons.spinner className="size-4 animate-spin" />
+              ) : (
+                <p>
+                  {type === "edit"
+                    ? initData?.active === 2 && isAdmin
+                      ? t("Agree")
+                      : t("Update")
+                    : t("Save")}
+                </p>
+              )}
+            </Button>
+          )}
         </div>
       </form>
     </div>
