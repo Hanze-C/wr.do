@@ -5,6 +5,16 @@ description: How to install the project.
 
 <DocsLang en="/docs/developer/installation" zh="/docs/developer/installation-zh" />
 
+<Callout type="info" twClass="mt-4">
+  Suggest reading the following deployment tutorials:
+    - [Quick Start](/docs/developer/quick-start) for getting all the configuration
+    - [Deploy Guide](/docs/developer/deploy) for deployment methods
+
+  Or read unofficial deployment tutorials:
+    - https://linux.do/t/topic/711806 
+    - https://bravexist.cn/2025/06/wr.do.html
+</Callout>
+
 <Steps>
 
 ### Create project
@@ -17,7 +27,7 @@ npx create-next-app wrdo --example "https://github.com/oiov/wr.do"
 
 Or deploy with Vercel :
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Foiov%2Fwr.do)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/oiov/wr.do.git&project-name=wrdo)
 
 <Callout type="warning" twClass="mt-4">
   A good way to create your repository, but the deployment will fail because you
@@ -40,8 +50,10 @@ Copy/paste the `.env.example` in the `.env` file:
 
 | Environment Variable | Value | Description |
 |----------------------|-------|-------------|
-| NEXTAUTH_URL | `http://localhost:3000` | The URL of the Next.js application. |
+| NEXT_PUBLIC_APP_URL | `http://localhost:3000` | The URL of the Next.js application. |
+| NEXT_PUBLIC_APP_NAME | `wr.do` | The name of website. |
 | AUTH_SECRET | `123465` | The secret used to encrypt tokens and email verification hashes. |
+| AUTH_URL | `http://localhost:3000` | NextAuth.js callback URL。   
 | DATABASE_URL | `postgres://username:password@host:port/database` | The path to the postgres database. |
 | GOOGLE_CLIENT_ID | `123465` | The ID of the Google OAuth client. |
 | GOOGLE_CLIENT_SECRET | `123465` | The secret of the Google OAuth client. |
@@ -49,9 +61,14 @@ Copy/paste the `.env.example` in the `.env` file:
 | GITHUB_SECRET | `123465` | The secret of the GitHub OAuth client. |
 | RESEND_API_KEY | `123465` | The API key for Resend. |
 | RESEND_FROM_EMAIL | `"you <support@your-domain.com>"` | The email address to send emails from. |
-| NEXT_PUBLIC_OPEN_SIGNUP | `1` | Open signup. |
-| SCREENSHOTONE_BASE_URL | `https://api.example.com` | pending |
+| SCREENSHOTONE_BASE_URL | `https://api.example.com` | The base URL of the screenshotone API. |
 | GITHUB_TOKEN | `ghp_sscsfarwetqet` | https://github.com/settings/tokens |
+| NEXT_PUBLIC_GOOGLE_ID | `G-EWREW323` | The ID of the Google Analytics. |
+| NEXT_PUBLIC_UMAMI_SCRIPT | `https://umami.example.com/script.js` | The URL of the Umami script. |
+| NEXT_PUBLIC_UMAMI_WEBSITE_ID | `123465` | The ID of the Umami website. |
+| NEXT_PUBLIC_SUPPORT_EMAIL | `support@your-domain.com` | The email address for support. |
+| SKIP_DB_CHECK | `false` | Skip database check. |
+| SKIP_DB_MIGRATION | `false` | Skip database migration. |
 
 - How to get `GOOGLE_CLIENT_ID`、`GITHUB_ID`, see [Authentification](/docs/developer/authentification).
 - How to get `RESEND_API_KEY`, see [Email](/docs/developer/email).

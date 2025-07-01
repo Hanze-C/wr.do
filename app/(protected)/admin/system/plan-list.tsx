@@ -1,23 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { User } from "@prisma/client";
 import { PenLine, RefreshCwIcon } from "lucide-react";
-import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import useSWR, { useSWRConfig } from "swr";
 
-import { DomainFormData } from "@/lib/dto/domains";
-import { fetcher, timeAgo } from "@/lib/utils";
+import { PlanQuotaFormData } from "@/lib/dto/plan";
+import { fetcher, nFormatter } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -29,22 +22,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DomainForm } from "@/components/forms/domain-form";
+import { PlanForm } from "@/components/forms/plan-form";
 import { FormType } from "@/components/forms/record-form";
 import { EmptyPlaceholder } from "@/components/shared/empty-placeholder";
 import { Icons } from "@/components/shared/icons";
 import { PaginationWrapper } from "@/components/shared/pagination";
+import { TimeAgoIntl } from "@/components/shared/time-ago";
 
-export interface DomainListProps {
+export interface PlanListProps {
   user: Pick<User, "id" | "name" | "email" | "apiKey" | "role" | "team">;
   action: string;
 }
 
 function TableColumnSekleton() {
   return (
-    <TableRow className="grid grid-cols-4 items-center sm:grid-cols-7">
+    <TableRow className="grid grid-cols-4 items-center sm:grid-cols-8">
       <TableCell className="col-span-1 flex">
         <Skeleton className="h-5 w-20" />
+      </TableCell>
+      <TableCell className="col-span-1 hidden sm:flex">
+        <Skeleton className="h-5 w-16" />
       </TableCell>
       <TableCell className="col-span-1 hidden sm:flex">
         <Skeleton className="h-5 w-16" />
@@ -68,12 +65,13 @@ function TableColumnSekleton() {
   );
 }
 
-export default function DomainList({ user, action }: DomainListProps) {
+export default function PlanList({ user, action }: PlanListProps) {
   const { isMobile } = useMediaQuery();
+  const t = useTranslations("List");
   const [isShowForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<FormType>("add");
-  const [currentEditDomain, setCurrentEditDomain] =
-    useState<DomainFormData | null>(null);
+  const [currentEditPlan, setCurrentEditPlan] =
+    useState<PlanQuotaFormData | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchParams, setSearchParams] = useState({
@@ -85,7 +83,7 @@ export default function DomainList({ user, action }: DomainListProps) {
   const { mutate } = useSWRConfig();
   const { data, isLoading } = useSWR<{
     total: number;
-    list: DomainFormData[];
+    list: PlanQuotaFormData[];
   }>(
     `${action}?page=${currentPage}&size=${pageSize}&target=${searchParams.target}`,
     fetcher,
@@ -98,44 +96,12 @@ export default function DomainList({ user, action }: DomainListProps) {
     );
   };
 
-  const handleChangeStatus = async (
-    checked: boolean,
-    target: string,
-    domain: DomainFormData,
-  ) => {
-    const res = await fetch(action, {
-      method: "PUT",
-      body: JSON.stringify({
-        id: domain.id,
-        enable_short_link:
-          target === "enable_short_link" ? checked : domain.enable_short_link,
-        enable_email: target === "enable_email" ? checked : domain.enable_email,
-        enable_dns: target === "enable_dns" ? checked : domain.enable_dns,
-        active: target === "active" ? checked : domain.active,
-      }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data) {
-        toast.success("Successed!");
-        handleRefresh();
-      }
-    } else {
-      toast.error("Activation failed!");
-    }
-  };
-
   return (
     <>
       <Card className="xl:col-span-2">
         <CardHeader className="flex flex-row items-center gap-2">
           <div className="flex items-center gap-1 text-lg font-bold">
-            <span className="text-nowrap">Total Domains:</span>
-            {isLoading ? (
-              <Skeleton className="h-6 w-16" />
-            ) : (
-              <span>{data && data.total}</span>
-            )}
+            <span className="text-nowrap">{t("Quota Settings")}</span>
           </div>
 
           <div className="ml-auto flex items-center justify-end gap-3">
@@ -154,68 +120,44 @@ export default function DomainList({ user, action }: DomainListProps) {
               className="flex shrink-0 gap-1"
               variant="default"
               onClick={() => {
-                setCurrentEditDomain(null);
+                setCurrentEditPlan(null);
                 setShowForm(false);
                 setFormType("add");
                 setShowForm(!isShowForm);
               }}
             >
               <Icons.add className="size-4" />
-              <span className="hidden sm:inline">Add Domain</span>
+              <span className="hidden sm:inline">{t("Add Plan")}</span>
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-2 flex-row items-center gap-2 space-y-2 sm:flex sm:space-y-0">
-            <div className="relative w-full">
-              <Input
-                className="h-8 text-xs md:text-xs"
-                placeholder="Search by domain name..."
-                value={searchParams.target}
-                onChange={(e) => {
-                  setSearchParams({
-                    ...searchParams,
-                    target: e.target.value,
-                  });
-                }}
-              />
-              {searchParams.target && (
-                <Button
-                  className="absolute right-2 top-1/2 h-6 -translate-y-1/2 rounded-full px-1 text-gray-500 hover:text-gray-700"
-                  onClick={() =>
-                    setSearchParams({ ...searchParams, target: "" })
-                  }
-                  variant={"ghost"}
-                >
-                  <Icons.close className="size-3" />
-                </Button>
-              )}
-            </div>
-          </div>
-
           <Table>
             <TableHeader className="bg-gray-100/50 dark:bg-primary-foreground">
-              <TableRow className="grid grid-cols-4 items-center text-xs sm:grid-cols-7">
+              <TableRow className="grid grid-cols-4 items-center text-xs sm:grid-cols-8">
                 <TableHead className="col-span-1 flex items-center font-bold">
-                  Domain
+                  {t("Plan Name")}
                 </TableHead>
                 <TableHead className="col-span-1 hidden items-center text-nowrap font-bold sm:flex">
-                  Shorten
+                  {t("Short Limit")}
                 </TableHead>
                 <TableHead className="col-span-1 hidden items-center text-nowrap font-bold sm:flex">
-                  Email
+                  {t("Email Limit")}
                 </TableHead>
                 <TableHead className="col-span-1 hidden items-center text-nowrap font-bold sm:flex">
-                  Subdomain
+                  {t("Send Limit")}
+                </TableHead>
+                <TableHead className="col-span-1 hidden items-center text-nowrap font-bold sm:flex">
+                  {t("Record Limit")}
                 </TableHead>
                 <TableHead className="col-span-1 flex items-center text-nowrap font-bold">
-                  Active
+                  {t("Active")}
                 </TableHead>
                 <TableHead className="col-span-1 flex items-center font-bold">
-                  Updated
+                  {t("Updated")}
                 </TableHead>
                 <TableHead className="col-span-1 flex items-center font-bold">
-                  Actions
+                  {t("Actions")}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -229,99 +171,65 @@ export default function DomainList({ user, action }: DomainListProps) {
                   <TableColumnSekleton />
                 </>
               ) : data && data.list && data.list.length ? (
-                data.list.map((domain) => (
-                  <div className="border-b" key={domain.id}>
-                    <TableRow className="grid grid-cols-4 items-center sm:grid-cols-7">
+                data.list.map((plan) => (
+                  <div className="border-b" key={plan.id}>
+                    <TableRow className="grid grid-cols-4 items-center sm:grid-cols-8">
                       <TableCell className="col-span-1 flex items-center gap-1">
-                        <Link
-                          className="overflow-hidden text-ellipsis whitespace-normal text-slate-600 hover:text-blue-400 hover:underline dark:text-slate-400"
-                          href={`https://${domain.domain_name}`}
-                          target="_blank"
-                          prefetch={false}
-                          title={domain.domain_name}
-                        >
-                          {domain.domain_name}
-                        </Link>
+                        {plan.name}
                       </TableCell>
                       <TableCell className="col-span-1 hidden items-center gap-1 sm:flex">
-                        <Switch
-                          defaultChecked={domain.enable_short_link}
-                          onCheckedChange={(value) =>
-                            handleChangeStatus(
-                              value,
-                              "enable_short_link",
-                              domain,
-                            )
-                          }
-                        />
+                        {nFormatter(plan.slNewLinks)}
                       </TableCell>
                       <TableCell className="col-span-1 hidden items-center gap-1 sm:flex">
-                        <Switch
-                          defaultChecked={domain.enable_email}
-                          onCheckedChange={(value) =>
-                            handleChangeStatus(value, "enable_email", domain)
-                          }
-                        />
+                        {nFormatter(plan.emEmailAddresses)}
                       </TableCell>
                       <TableCell className="col-span-1 hidden items-center gap-1 sm:flex">
-                        <Switch
-                          defaultChecked={domain.enable_dns}
-                          onCheckedChange={(value) =>
-                            handleChangeStatus(value, "enable_dns", domain)
-                          }
-                        />
+                        {nFormatter(plan.emSendEmails)}
+                      </TableCell>
+                      <TableCell className="col-span-1 hidden items-center gap-1 sm:flex">
+                        {nFormatter(plan.rcNewRecords)}
                       </TableCell>
                       <TableCell className="col-span-1 flex items-center gap-1">
                         <Switch
                           disabled
-                          defaultChecked={domain.active}
-                          onCheckedChange={(value) =>
-                            handleChangeStatus(value, "active", domain)
-                          }
+                          defaultChecked={plan.isActive}
+                          // onCheckedChange={(value) =>
+                          // handleChangeStatus(value, "active", domain)
+                          // }
                         />
                       </TableCell>
                       <TableCell className="col-span-1 flex items-center truncate">
-                        {timeAgo(domain.updatedAt as Date)}
+                        <TimeAgoIntl date={plan.updatedAt as Date} />
                       </TableCell>
                       <TableCell className="col-span-1 flex items-center gap-1">
                         <Button
-                          className="h-7 px-1 text-xs hover:bg-slate-100 dark:hover:text-primary-foreground"
+                          className="h-7 px-1 text-xs hover:bg-slate-100 dark:hover:text-primary-foreground sm:px-1.5"
                           size="sm"
                           variant={"outline"}
                           onClick={() => {
-                            setCurrentEditDomain(domain);
+                            setCurrentEditPlan(plan);
                             setShowForm(false);
                             setFormType("edit");
                             setShowForm(!isShowForm);
                           }}
                         >
-                          <p className="hidden sm:block">Edit</p>
+                          <p className="hidden text-nowrap sm:block">
+                            {t("Edit")}
+                          </p>
                           <PenLine className="mx-0.5 size-4 sm:ml-1 sm:size-3" />
                         </Button>
-                        {domain.cf_zone_id &&
-                          domain.cf_api_key &&
-                          domain.cf_email && (
-                            <Button
-                              className="h-7 px-1 text-xs hover:bg-slate-100 dark:hover:text-primary-foreground"
-                              size="sm"
-                              variant="ghost"
-                            >
-                              <Icons.cloudflare className="mx-0.5 size-4" />
-                            </Button>
-                          )}
                       </TableCell>
                     </TableRow>
-                    {/* {isShowDomainInfo && selectedDomain?.id === domain.id && (
-                      <DomainInfo domain={domain} />
-                    )} */}
                   </div>
                 ))
               ) : (
                 <EmptyPlaceholder className="shadow-none">
-                  <EmptyPlaceholder.Icon name="globeLock" />
-                  <EmptyPlaceholder.Title>No Domains</EmptyPlaceholder.Title>
+                  <EmptyPlaceholder.Icon name="settings" />
+                  <EmptyPlaceholder.Title>
+                    {t("No Plans")}
+                  </EmptyPlaceholder.Title>
                   <EmptyPlaceholder.Description>
-                    You don&apos;t have any domains yet. Start creating one.
+                    You don&apos;t have any plans yet. Start creating one.
                   </EmptyPlaceholder.Description>
                 </EmptyPlaceholder>
               )}
@@ -342,24 +250,20 @@ export default function DomainList({ user, action }: DomainListProps) {
 
       {/* form */}
       <Modal
-        className="max-h-[90vh] overflow-y-auto md:max-w-2xl"
+        className="md:max-w-2xl"
         showModal={isShowForm}
         setShowModal={setShowForm}
       >
-        <DomainForm
+        <PlanForm
           user={{ id: user.id, name: user.name || "" }}
           isShowForm={isShowForm}
           setShowForm={setShowForm}
           type={formType}
-          initData={currentEditDomain}
+          initData={currentEditPlan}
           action={action}
           onRefresh={handleRefresh}
         />
       </Modal>
     </>
   );
-}
-
-export function DomainInfo({ domain }: { domain: DomainFormData }) {
-  return <>{domain.domain_name}</>;
 }

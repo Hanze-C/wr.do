@@ -1,6 +1,6 @@
-import { TeamPlanQuota } from "@/config/team";
 import { checkApiKey } from "@/lib/dto/api-key";
 import { getDomainsByFeature } from "@/lib/dto/domains";
+import { getPlanQuota } from "@/lib/dto/plan";
 import { createUserShortUrl } from "@/lib/dto/short-urls";
 import { restrictByTimeRange } from "@/lib/team";
 import { createUrlSchema } from "@/lib/validations/url";
@@ -23,11 +23,13 @@ export async function POST(req: Request) {
       );
     }
 
+    const plan = await getPlanQuota(user.team!);
+
     // check limit
     const limit = await restrictByTimeRange({
       model: "userUrl",
       userId: user.id,
-      limit: TeamPlanQuota[user.team!].SL_NewLinks,
+      limit: plan.slNewLinks,
       rangeType: "month",
     });
     if (limit) return Response.json(limit.statusText, { status: limit.status });
@@ -50,6 +52,14 @@ export async function POST(req: Request) {
       return Response.json("Invalid domain", {
         status: 409,
         statusText: "Invalid domain",
+      });
+    }
+
+    const limit_len =
+      zones.find((zone) => zone.domain_name === prefix)?.min_url_length ?? 3;
+    if (!url || url.length < limit_len) {
+      return Response.json(`Slug length must be at least ${limit_len}`, {
+        status: 400,
       });
     }
 

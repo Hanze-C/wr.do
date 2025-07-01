@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { User } from "@prisma/client";
 import { PenLine, RefreshCwIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import useSWR, { useSWRConfig } from "swr";
 
-import { fetcher, timeAgo } from "@/lib/utils";
+import { fetcher } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,12 +34,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { UserForm } from "@/components/forms/user-form";
+import { FormType, UserForm } from "@/components/forms/user-form";
 import { EmptyPlaceholder } from "@/components/shared/empty-placeholder";
 import { Icons } from "@/components/shared/icons";
 import { PaginationWrapper } from "@/components/shared/pagination";
-
-import CountUpFn from "../../../../components/dashboard/count-up";
+import { TimeAgoIntl } from "@/components/shared/time-ago";
 
 export interface UrlListProps {
   user: Pick<User, "id" | "name">;
@@ -74,6 +74,7 @@ function TableColumnSekleton({ className }: { className?: string }) {
 
 export default function UsersList({ user }: UrlListProps) {
   const { isMobile } = useMediaQuery();
+  const [formType, setFormType] = useState<FormType>("add");
   const [isShowForm, setShowForm] = useState(false);
   const [currentEditUser, setcurrentEditUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -82,6 +83,8 @@ export default function UsersList({ user }: UrlListProps) {
     email: "",
     userName: "",
   });
+
+  const t = useTranslations("List");
 
   const { mutate } = useSWRConfig();
   const { data, isLoading } = useSWR<{ total: number; list: User[] }>(
@@ -104,10 +107,8 @@ export default function UsersList({ user }: UrlListProps) {
       <Card className="xl:col-span-2">
         <CardHeader className="flex flex-row items-center">
           <CardDescription className="text-balance text-lg font-bold">
-            <span>Total Users:</span>{" "}
-            <span className="font-bold">
-              {data && <CountUpFn count={data.total} />}
-            </span>
+            <span>{t("Total Users")}:</span>{" "}
+            <span className="font-bold">{data && data.total}</span>
           </CardDescription>
           <div className="ml-auto flex items-center justify-end gap-3">
             <Button
@@ -120,6 +121,19 @@ export default function UsersList({ user }: UrlListProps) {
               ) : (
                 <RefreshCwIcon className="size-4" />
               )}
+            </Button>
+            <Button
+              className="flex shrink-0 gap-1"
+              variant="default"
+              onClick={() => {
+                setcurrentEditUser(null);
+                setShowForm(false);
+                setFormType("add");
+                setShowForm(!isShowForm);
+              }}
+            >
+              <Icons.add className="size-4" />
+              <span className="hidden sm:inline">{t("Add User")}</span>
             </Button>
           </div>
         </CardHeader>
@@ -179,25 +193,25 @@ export default function UsersList({ user }: UrlListProps) {
             <TableHeader className="bg-gray-100/50 dark:bg-primary-foreground">
               <TableRow className="grid grid-cols-3 items-center sm:grid-cols-8">
                 <TableHead className="col-span-1 flex items-center font-bold">
-                  Name
+                  {t("Name")}
                 </TableHead>
                 <TableHead className="col-span-1 flex items-center font-bold sm:col-span-2">
-                  Email
+                  {t("Email")}
                 </TableHead>
                 <TableHead className="col-span-1 hidden items-center justify-center font-bold sm:flex">
-                  Role
+                  {t("Role")}
                 </TableHead>
                 <TableHead className="col-span-1 hidden items-center justify-center font-bold sm:flex">
-                  Plan
+                  {t("Plan")}
                 </TableHead>
                 <TableHead className="col-span-1 hidden items-center justify-center font-bold sm:flex">
-                  Status
+                  {t("Status")}
                 </TableHead>
                 <TableHead className="col-span-1 hidden items-center justify-center font-bold sm:flex">
-                  Join
+                  {t("Join")}
                 </TableHead>
                 <TableHead className="col-span-1 flex items-center justify-center font-bold">
-                  Actions
+                  {t("Actions")}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -240,19 +254,19 @@ export default function UsersList({ user }: UrlListProps) {
                     </TableCell>
                     <TableCell className="col-span-1 hidden justify-center sm:flex">
                       <Badge className="text-xs" variant="outline">
-                        {user.role}
+                        {t(user.role)}
                       </Badge>
                     </TableCell>
                     <TableCell className="col-span-1 hidden justify-center sm:flex">
                       <Badge className="text-xs" variant="outline">
-                        {user.team?.toLocaleUpperCase()}
+                        {user.team}
                       </Badge>
                     </TableCell>
                     <TableCell className="col-span-1 hidden justify-center sm:flex">
                       <Switch defaultChecked={user.active === 1} />
                     </TableCell>
                     <TableCell className="col-span-1 hidden justify-center sm:flex">
-                      {timeAgo(user.createdAt || "")}
+                      <TimeAgoIntl date={user.updatedAt as Date} />
                     </TableCell>
                     <TableCell className="col-span-1 flex justify-center">
                       <Button
@@ -262,10 +276,11 @@ export default function UsersList({ user }: UrlListProps) {
                         onClick={() => {
                           setcurrentEditUser(user);
                           setShowForm(false);
+                          setFormType("edit");
                           setShowForm(!isShowForm);
                         }}
                       >
-                        <p>Edit</p>
+                        <p className="text-nowrap">{t("Edit")}</p>
                         <PenLine className="ml-1 size-4" />
                       </Button>
                     </TableCell>
@@ -304,7 +319,7 @@ export default function UsersList({ user }: UrlListProps) {
           user={{ id: user.id, name: user.name || "" }}
           isShowForm={isShowForm}
           setShowForm={setShowForm}
-          type="edit"
+          type={formType}
           initData={currentEditUser}
           onRefresh={handleRefresh}
         />

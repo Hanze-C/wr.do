@@ -156,14 +156,7 @@ Via:
 NEXT_PUBLIC_EMAIL_R2_DOMAIN=https://email-attachment.wr.do
 ```
 
-## 4. Add the Bussiness Configs
-
-```js title=".env"
-# Allow anyone to sign up
-NEXT_PUBLIC_OPEN_SIGNUP=1
-```
-
-## 5. Add the SCREENSHOTONE_BASE_URL Environment Variable
+## 4. Add the SCREENSHOTONE_BASE_URL Environment Variable
 
 It's the base URL for the screenshotone API.
 
@@ -174,7 +167,7 @@ Deploy docs via [here](https://jasonraimondi.github.io/url-to-png/)
 SCREENSHOTONE_BASE_URL=https://api.screenshotone.com
 ```
 
-## 6. Add the GITHUB_TOKEN Environment Variable
+## 5. Add the GITHUB_TOKEN Environment Variable
 
 Via https://github.com/settings/tokens to get your token.
 
@@ -182,34 +175,17 @@ Via https://github.com/settings/tokens to get your token.
 GITHUB_TOKEN=
 ```
 
-## 7. Start the Dev Server
+## 6. Start the Dev Server
 
 ```bash
 pnpm dev
 ```
 Via [http://localhost:3000](http://localhost:3000)
 
-## 8. Setup System
+- Default admin account：`admin@admin.com`
+- Default admin password：`123456`
 
-#### Create the first account and Change the account's role to ADMIN
-
-Follow the steps below:
-
-- 1. Via [http://localhost:3000/login](http://localhost:3000/login), login with your account.
-- 2. Via [http://localhost:3000/setup](http://localhost:3000/setup), change the account's role to ADMIN.
-- 3. Then follow the **panel guide** to config the system and add the first domain. 
-
-![](/_static/docs/setup-1.png)
-
-![](/_static/docs/setup-2.png)
-
-<Callout type="info">
-  After change the account's role to ADMIN, then you can refresh the website and access http://localhost:3000/admin.
-
-  <strong>You must add at least one domain to start using short links, email or subdomain management features.</strong>
-</Callout>
-
-## 9. Deploy
+## 7. Deploy
 
 See [Deploy Guide](/docs/developer/deploy).
 
@@ -224,11 +200,3 @@ https://dash.cloudflare.com/[account_id]/[zone_name]/ssl-tls/configuration
 ```
 
 Change the `SSL/TLS Encryption` Mode to `Full` in the Cloudflare dashboard.
-
-### How can I change the team plan quota?
-
-Via team.ts:
-
-```bash
-https://github.com/oiov/wr.do/tree/main/config/team.ts
-```

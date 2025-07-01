@@ -1,12 +1,20 @@
 <div align="center">
   <h1>WR.DO</h1>
-  <p><a href="https://wr.do/docs/developer">Docs</a> · <a href="https://discord.gg/AHPQYuZu3m">Discord</a> · English | <a href="/README-zh.md">简体中文</a></p>
-  <p>Make Short Links, Manage DNS Records, Receive Emails.</p>
+  <p><a href="https://wr.do/docs/developer">Docs</a> · <a href="https://wr.do/feedback">Feedback</a> · English | <a href="/README-zh.md">简体中文</a></p>
+  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/oiov/wr.do?style=flat-square">
+  <img src="https://img.shields.io/github/stars/oiov/wr.do.svg?logo=github&style=flat-square" alt="star"/>
+  <img alt="GitHub forks" src="https://img.shields.io/github/forks/oiov/wr.do?style=flat-square">
+  <img alt="GitHub Issues or Pull Requests" src="https://img.shields.io/github/issues/oiov/wr.do?style=flat-square"> <br>
+  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/oiov/wr.do/docker-build-push.yml?style=flat-square">
+	<img src="https://img.shields.io/github/license/oiov/wr.do?style=flat-square" alt="MIT"/>
 </div>
 
 ## Introduction
 
 WR.DO is a all-in-one web utility platform featuring short links with analytics, temporary email service, subdomain management, open APIs for screenshots and metadata extraction, plus comprehensive admin dashboard.
+
+- Official website: [https://wr.do](https://wr.do)
+- Demo: [https://699399.xyz](https://699399.xyz) (Account: `admin@admin.com`, Password: `123456`)
 
 ## Features
 
@@ -24,12 +32,16 @@ WR.DO is a all-in-one web utility platform featuring short links with analytics,
   - Unlimited mailbox creation
   - Receive unlimited emails (powered by Cloudflare Email Worker)
   - Send emails (powered by Resend)
+  - Support catch-all emails
+  - Support push to telegram groups
   - API endpoints for mailbox creation
   - API endpoints for inbox retrieval
 
 - 🌐 **Subdomain Management Service**:
   - Manage DNS records across multiple Cloudflare accounts and domains
   - Create various DNS record types (CNAME, A, TXT, etc.)
+  - Support enabling application mode (user submission, admin approval)
+  - Support email notification of administrator and user domain application status
 
 - 📡 **Open API Module**:
   - Website metadata extraction API
@@ -43,6 +55,7 @@ WR.DO is a all-in-one web utility platform featuring short links with analytics,
   - Multi-dimensional dashboard with website analytics
   - Dynamic service configuration (toggle short links, email, subdomain management)
   - User management (permissions, quotas, account control)
+  - Dynamically configure login methods (Google, GitHub, Magic Link, Credentials, LinuxDO)
   - Centralized short link administration
   - Centralized email management
   - Centralized subdomain administration
@@ -73,7 +86,7 @@ See step by step installation tutorial at [Quick Start for Developer](https://wr
 
 ### Deploy with Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/oiov/wr.do.git&project-name=wrdo&env=DATABASE_URL&env=AUTH_SECRET&env=RESEND_API_KEY&env=NEXT_PUBLIC_EMAIL_R2_DOMAIN&env=NEXT_PUBLIC_OPEN_SIGNUP&env=GITHUB_TOKEN)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/oiov/wr.do.git&project-name=wrdo)
 
 Remember to fill in the necessary environment variables.
 
@@ -103,11 +116,6 @@ pnpm install
 
 copy `.env.example` to `.env` and fill in the necessary environment variables.
 
-```bash
-# run on localhost:3000
-pnpm dev
-```
-
 #### Init database
 
 ```bash
@@ -115,9 +123,47 @@ pnpm postinstall
 pnpm db:push
 ```
 
+```bash
+# run on localhost:3000
+pnpm dev
+```
+
+- Default admin account：`admin@admin.com`
+- Default admin password：`123456`
+
 #### Setup Admin Panel
 
+> After v1.0.2, this setup guide is not needed anymore
+
 Follow https://localhost:3000/setup
+
+## Deploy with Edgeone
+
+[![使用 EdgeOne Pages 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?repository-url=https%3A%2F%2Fgithub.com%2Foiov%2Fwr.do)
+
+## Environment Variables
+
+Via [Installation For Developer](https://wr.do/docs/developer).
+
+## Technology Stack
+
+- Next.js + React + TypeScript
+- Tailwind CSS for styling and design
+- Prisma ORM as the database toolkit
+- Cloudflare as the primary cloud infrastructure
+- Vercel as the recommended deployment platform
+- Resend as the primary email service
+
+## Fork Repository Sync
+
+This project is configured with a sync workflow for the upstream repository [oiov/wr.do](https://github.com/oiov/wr.do), featuring:
+
+- 🔄 **Manual Sync Trigger** - Auto-sync disabled by default, full control over sync timing
+- 💬 **Auto Comment After Sync** - Add detailed sync information to related commits
+- 🚨 **Smart Error Handling** - Auto-create detailed Issues when sync fails
+- 🧹 **Auto Cleanup Notifications** - Automatically close previous sync failure Issues
+
+See [How to Trigger Sync](https://wr.do/docs/developer/sync) for details.
 
 ## Community Group
 
@@ -139,3 +185,4 @@ Follow https://localhost:3000/setup
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=oiov/wr.do&type=Date" />
  </picture>
 </a>
+

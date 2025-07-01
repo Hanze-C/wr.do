@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { siteConfig } from "@/config/site";
-import { TeamPlanQuota } from "@/config/team";
 import { checkApiKey } from "@/lib/dto/api-key";
 import { getDomainsByFeature } from "@/lib/dto/domains";
 import { createUserEmail, deleteUserEmailByAddress } from "@/lib/dto/email";
+import { getPlanQuota } from "@/lib/dto/plan";
 import { reservedAddressSuffix } from "@/lib/enums";
 import { restrictByTimeRange } from "@/lib/team";
 
@@ -32,11 +31,13 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const plan = await getPlanQuota(user.team!);
+
   // check limit
   const limit = await restrictByTimeRange({
     model: "userEmail",
     userId: user.id,
-    limit: TeamPlanQuota[user.team!].EM_EmailAddresses,
+    limit: plan.emEmailAddresses,
     rangeType: "month",
   });
   if (limit)
@@ -49,18 +50,23 @@ export async function POST(req: NextRequest) {
   }
 
   const [prefix, suffix] = emailAddress.split("@");
-  if (!prefix || prefix.length < 5) {
-    return NextResponse.json("Email address length must be at least 5", {
-      status: 400,
-    });
-  }
-
   const zones = await getDomainsByFeature("enable_email", true);
   if (
     !zones.length ||
     !zones.map((zone) => zone.domain_name).includes(suffix)
   ) {
     return NextResponse.json("Invalid email suffix address", { status: 400 });
+  }
+
+  const limit_len =
+    zones.find((zone) => zone.domain_name === suffix)?.min_email_length ?? 3;
+  if (!prefix || prefix.length < limit_len) {
+    return NextResponse.json(
+      `Email address length must be at least ${limit_len}`,
+      {
+        status: 400,
+      },
+    );
   }
 
   if (reservedAddressSuffix.includes(prefix)) {

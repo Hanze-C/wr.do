@@ -9,7 +9,7 @@ import DashboardScrapeCharts from "../charts";
 import { ScreenshotScraping } from "../scrapes";
 
 export const metadata = constructMetadata({
-  title: "Url to Screenshot API - WR.DO",
+  title: "Url to Screenshot API",
   description:
     "Quickly extract website screenshots. It's free and unlimited to use!",
 });
@@ -22,10 +22,10 @@ export default async function DashboardPage() {
   return (
     <>
       <DashboardHeader
-        heading="Url&nbsp;&nbsp;to&nbsp;&nbsp;Screenshot"
-        text="Quickly extract website screenshots."
+        heading="Url to Screenshot"
+        text="Quickly extract website screenshots"
         link="/docs/open-api/screenshot"
-        linkText="Screenshot API."
+        linkText="Screenshot API"
       />
       <ApiReference
         badge="GET /api/v1/scraping/screenshot"
